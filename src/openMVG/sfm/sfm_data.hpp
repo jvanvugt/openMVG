@@ -45,6 +45,8 @@ struct SfM_Data
   /// Controls points (stored as Landmarks (id_feat has no meaning here))
   Landmarks control_points;
 
+  std::vector<std::tuple<Vec3, Vec3, double>> distance_control_points;
+
   /// Root Views path
   std::string s_root_path;
 
