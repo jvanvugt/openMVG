@@ -79,6 +79,36 @@ struct PoseCenterConstraintCostFunction
   }
 };
 
+struct PointToPointDistanceConstraintCostFunction
+{
+  double distance;
+  PointToPointDistanceConstraintCostFunction(double distance_): distance(distance_) {}
+
+  template <typename T> bool
+  operator()
+  (
+    const T* const X1,
+    const T* const X2,
+    T* out_residual
+  ) const
+  {
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> X1_eigen(X1);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> X2_eigen(X2);
+    Eigen::Map<Eigen::Matrix<T, 1, 1>> out_residual_eigen(out_residual);
+
+    out_residual_eigen(0) = (X1_eigen - X2_eigen).norm() - T(distance);
+
+    return true;
+  }
+
+  static ceres::CostFunction* Create(double distance)
+  {
+    return new ceres::AutoDiffCostFunction<PointToPointDistanceConstraintCostFunction, 1, 3, 3>(
+      new PointToPointDistanceConstraintCostFunction(distance));
+  }
+
+};
+
 /// Create the appropriate cost functor according the provided input camera intrinsic model.
 /// The residual can be weighetd if desired (default 0.0 means no weight).
 ceres::CostFunction * IntrinsicsToCostFunction
@@ -448,6 +478,15 @@ bool Bundle_Adjustment_Ceres::Adjust
         problem.SetParameterBlockConstant(gcp_landmark_it.second.X.data());
       }
     }
+  }
+
+  for (const auto& dist_cp : sfm_data.distance_control_points)
+  {
+    ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp));
+    problem.AddResidualBlock(cost_function,
+                             nullptr,
+                             sfm_data.structure.at(std::get<0>(dist_cp)).X.data(),
+                             sfm_data.structure.at(std::get<1>(dist_cp)).X.data());
   }
 
   // Add Pose prior constraints if any
