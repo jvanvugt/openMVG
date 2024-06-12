@@ -480,13 +480,13 @@ bool Bundle_Adjustment_Ceres::Adjust
     }
   }
 
-  for (const auto& dist_cp : sfm_data.distance_control_points)
+  for (const auto& dist_cp : sfm_data.landmark_distances)
   {
     ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp));
     problem.AddResidualBlock(cost_function,
                              nullptr,
-                             sfm_data.structure.at(std::get<0>(dist_cp)).X.data(),
-                             sfm_data.structure.at(std::get<1>(dist_cp)).X.data());
+                             sfm_data.control_points.at(std::get<0>(dist_cp)).X.data(),
+                             sfm_data.control_points.at(std::get<1>(dist_cp)).X.data());
   }
 
   // Add Pose prior constraints if any
