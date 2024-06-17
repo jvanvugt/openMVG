@@ -82,7 +82,8 @@ struct PoseCenterConstraintCostFunction
 struct PointToPointDistanceConstraintCostFunction
 {
   double distance;
-  PointToPointDistanceConstraintCostFunction(double distance_): distance(distance_) {}
+  double weight;
+  PointToPointDistanceConstraintCostFunction(double distance_, double weight_): distance(distance_), weight(weight_) {}
 
   template <typename T> bool
   operator()
@@ -96,15 +97,15 @@ struct PointToPointDistanceConstraintCostFunction
     Eigen::Map<const Eigen::Matrix<T, 3, 1>> X2_eigen(X2);
     Eigen::Map<Eigen::Matrix<T, 1, 1>> out_residual_eigen(out_residual);
 
-    out_residual_eigen(0) = (X1_eigen - X2_eigen).norm() - T(distance);
+    out_residual_eigen(0) = weight * ((X1_eigen - X2_eigen).norm() - T(distance));
 
     return true;
   }
 
-  static ceres::CostFunction* Create(double distance)
+  static ceres::CostFunction* Create(double distance, double weight)
   {
     return new ceres::AutoDiffCostFunction<PointToPointDistanceConstraintCostFunction, 1, 3, 3>(
-      new PointToPointDistanceConstraintCostFunction(distance));
+      new PointToPointDistanceConstraintCostFunction(distance, weight));
   }
 
 };
@@ -482,7 +483,7 @@ bool Bundle_Adjustment_Ceres::Adjust
 
   for (const auto& dist_cp : sfm_data.landmark_distances)
   {
-    ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp));
+    ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp), 20.0);
     problem.AddResidualBlock(cost_function,
                              nullptr,
                              sfm_data.control_points.at(std::get<0>(dist_cp)).X.data(),
