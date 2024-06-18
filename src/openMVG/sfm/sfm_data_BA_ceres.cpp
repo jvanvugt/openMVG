@@ -483,7 +483,7 @@ bool Bundle_Adjustment_Ceres::Adjust
 
   for (const auto& dist_cp : sfm_data.landmark_distances)
   {
-    ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp), 20.0);
+    ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp), std::get<3>(dist_cp));
     problem.AddResidualBlock(cost_function,
                              nullptr,
                              sfm_data.control_points.at(std::get<0>(dist_cp)).X.data(),
