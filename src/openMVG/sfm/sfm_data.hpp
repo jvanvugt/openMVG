@@ -30,6 +30,47 @@ using Poses = Hash_Map<IndexT, geometry::Pose3>;
 /// Define a collection of View (indexed by View::id_view)
 using Views = Hash_Map<IndexT, std::shared_ptr<View>>;
 
+struct AprilTag
+{
+  geometry::Pose3 pose;
+  double size;
+  IndexT id;
+
+  AprilTag(geometry::Pose3 pose_, double size_, IndexT id_)
+    : pose(pose_), size(size_), id(id_) {}
+
+  Eigen::Matrix<double, 3, 4> corners_world() {
+    const auto corners = corners_local<double>(size);
+    return pose(corners);
+  }
+
+  template <typename T>
+  static Eigen::Matrix<T, 3, 4> corners_local(T s) {
+    Eigen::Matrix<T, 3, 4> corners;
+    const T hs = s / T(2.0);
+    corners << -hs, hs, hs, -hs, // TODO(joris): verify corner order
+               -hs, -hs, hs, hs,
+               0, 0, 0, 0;
+    return corners;
+  }
+
+
+};
+
+struct AprilTagObservation
+{
+  IndexT tag_id;
+  IndexT view_id;
+  Eigen::Matrix<double, 2, 4> corners;
+};
+
+struct AprilTagDistance
+{
+  IndexT tag1_id;
+  IndexT tag2_id;
+  double distance;
+};
+
 /// Generic SfM data container
 /// Store structure and camera properties:
 struct SfM_Data
@@ -45,7 +86,9 @@ struct SfM_Data
   /// Controls points (stored as Landmarks (id_feat has no meaning here))
   Landmarks control_points;
 
-  std::vector<std::tuple<IndexT, IndexT, double, double>> landmark_distances;
+  Hash_Map<IndexT, AprilTag> april_tags;
+  std::vector<AprilTagObservation> april_tag_observations;
+  std::vector<AprilTagDistance> april_tag_distances;
 
   /// Root Views path
   std::string s_root_path;

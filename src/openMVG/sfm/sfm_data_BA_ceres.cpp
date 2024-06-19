@@ -110,6 +110,54 @@ struct PointToPointDistanceConstraintCostFunction
 
 };
 
+struct AprilTagObservationCostFunction
+{
+  Eigen::Matrix< double, 2, 4> corner_pix;
+  double tag_size;
+  double weight;
+
+  AprilTagObservationCostFunction(const Eigen::Matrix<double, 2, 4>& corner_pix_, double tag_size_, double weight_)
+    : corner_pix(corner_pix_), tag_size(tag_size_), weight(weight_)
+  {
+  }
+
+  template <typename T> bool
+  operator()
+  (
+    const T* const cam_intrinsics,
+    const T* const cam_extrinsics,
+    const T* const tag_pose,
+    T* out_residual
+  ) const
+  {
+    const auto corners = AprilTag::corners_local<T>(T(tag_size));
+    bool success = true;
+    for (int i = 0; i < 4; i++) {
+      using Vec3T = Eigen::Matrix<T,3,1>;
+
+      Eigen::Map<const Vec3T> tag_R(&tag_pose[0]);
+      Eigen::Map<const Vec3T> tag_t(&tag_pose[3]);
+
+      Vec3T corner_local = corners.col(i);
+
+      Vec3T corner_world;
+      // Rotate the point according the camera rotation
+      ceres::AngleAxisRotatePoint(tag_R.data(), corner_local.data(), corner_world.data());
+      corner_world = corner_world + tag_t;
+
+      ResidualErrorFunctor_Pinhole_Intrinsic_Radial_K3 reprojection_residual(corner_pix.col(i).data());
+      success = reprojection_residual(cam_intrinsics, cam_extrinsics, corner_world.data(), out_residual + 2 * i) && success;
+    }
+    return success;
+  }
+
+  static ceres::CostFunction* Create(const Eigen::Matrix<double, 2, 4>& corner_pix, double tag_size, double weight)
+  {
+    return new ceres::AutoDiffCostFunction<AprilTagObservationCostFunction, 8, 6, 6, 6>(
+      new AprilTagObservationCostFunction(corner_pix,tag_size, weight));
+  }
+};
+
 /// Create the appropriate cost functor according the provided input camera intrinsic model.
 /// The residual can be weighetd if desired (default 0.0 means no weight).
 ceres::CostFunction * IntrinsicsToCostFunction
@@ -286,6 +334,7 @@ bool Bundle_Adjustment_Ceres::Adjust
   // Data wrapper for refinement:
   Hash_Map<IndexT, std::vector<double>> map_intrinsics;
   Hash_Map<IndexT, std::vector<double>> map_poses;
+  Hash_Map<IndexT, std::vector<double>> map_april_tag_poses;
 
   // Setup Poses data & subparametrization
   for (const auto & pose_it : sfm_data.poses)
@@ -335,6 +384,23 @@ bool Bundle_Adjustment_Ceres::Adjust
 #endif
       }
     }
+  }
+
+  for (const auto & april_tag_it : sfm_data.april_tags)
+  {
+    const IndexT indexTag = april_tag_it.first;
+
+    const Pose3 & pose = april_tag_it.second.pose;
+    const Mat3 R = pose.rotation();
+    const Vec3 t = pose.translation();
+
+    double angleAxis[3];
+    ceres::RotationMatrixToAngleAxis((const double*)R.data(), angleAxis);
+    // angleAxis + translation
+    map_april_tag_poses[indexTag] = {angleAxis[0], angleAxis[1], angleAxis[2], t(0), t(1), t(2)};
+
+    double * parameter_block = &map_poses.at(indexTag)[0];
+    problem.AddParameterBlock(parameter_block, 6);
   }
 
   // Setup Intrinsics data & subparametrization
@@ -481,13 +547,19 @@ bool Bundle_Adjustment_Ceres::Adjust
     }
   }
 
-  for (const auto& dist_cp : sfm_data.landmark_distances)
+  for (const auto& at_obs : sfm_data.april_tag_observations)
   {
-    ceres::CostFunction* cost_function = PointToPointDistanceConstraintCostFunction::Create(std::get<2>(dist_cp), std::get<3>(dist_cp));
+    const auto& tag = sfm_data.april_tags.at(at_obs.tag_id);
+    const auto& view = sfm_data.views.at(at_obs.view_id);
+    const auto& obs = at_obs.corners;
+
+    ceres::CostFunction* cost_function = AprilTagObservationCostFunction::Create(obs, tag.size, 1.0);
+
     problem.AddResidualBlock(cost_function,
                              nullptr,
-                             sfm_data.control_points.at(std::get<0>(dist_cp)).X.data(),
-                             sfm_data.control_points.at(std::get<1>(dist_cp)).X.data());
+                             &map_intrinsics.at(view->id_intrinsic)[0],
+                             &map_poses.at(view->id_pose)[0],
+                             &map_april_tag_poses.at(tag.id)[0]);
   }
 
   // Add Pose prior constraints if any
@@ -605,6 +677,20 @@ bool Bundle_Adjustment_Ceres::Adjust
         const std::vector<double> & vec_params = map_intrinsics.at(indexCam);
         intrinsic_it.second->updateFromParams(vec_params);
       }
+    }
+
+    // Update AprilTag poses with refined data
+    for (auto & april_tag_it : sfm_data.april_tags)
+    {
+      const IndexT indexTag = april_tag_it.first;
+
+      Mat3 R_refined;
+      ceres::AngleAxisToRotationMatrix(&map_april_tag_poses.at(indexTag)[0], R_refined.data());
+      Vec3 t_refined(map_april_tag_poses.at(indexTag)[3], map_april_tag_poses.at(indexTag)[4], map_april_tag_poses.at(indexTag)[5]);
+      // Update the pose
+      Pose3 & pose = april_tag_it.second.pose;
+      pose.rotation() = R_refined;
+      pose.translation() = t_refined;
     }
 
     // Structure is already updated directly if needed (no data wrapping)
