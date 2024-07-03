@@ -399,7 +399,7 @@ bool Bundle_Adjustment_Ceres::Adjust
     // angleAxis + translation
     map_april_tag_poses[indexTag] = {angleAxis[0], angleAxis[1], angleAxis[2], t(0), t(1), t(2)};
 
-    double * parameter_block = &map_poses.at(indexTag)[0];
+    double * parameter_block = &map_april_tag_poses.at(indexTag)[0];
     problem.AddParameterBlock(parameter_block, 6);
   }
 
