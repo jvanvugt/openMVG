@@ -48,8 +48,9 @@ struct AprilTag
   static Eigen::Matrix<T, 3, 4> corners_local(T s) {
     Eigen::Matrix<T, 3, 4> corners;
     const T hs = s / T(2.0);
-    corners << -hs, hs, hs, -hs, // TODO(joris): verify corner order
-               -hs, -hs, hs, hs,
+    // Corners, top-left going clockwise
+    corners << -hs, hs, hs, -hs,
+               hs, hs, -hs, -hs,
                0, 0, 0, 0;
     return corners;
   }
