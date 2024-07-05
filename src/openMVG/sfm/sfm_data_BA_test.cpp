@@ -110,6 +110,19 @@ TEST(BUNDLE_ADJUSTMENT, EffectiveMinimization_Pinhole_Radial_K3) {
   // Translate the input dataset to a SfM_Data scene
   SfM_Data sfm_data = getInputScene(d, config, PINHOLE_CAMERA_RADIAL3);
 
+  geometry::Pose3 tag_pose;
+  tag_pose.center() = Vec3{0.1, 0.2, 0.0};
+  const AprilTag apriltag(tag_pose, 0.1, 0);
+
+  const AprilTag initial_apriltag(geometry::Pose3(), 0.1, 0);
+  sfm_data.april_tags.emplace(apriltag.id, initial_apriltag);
+  const Eigen::Matrix<double, 3, Eigen::Dynamic> corners = apriltag.corners_world();
+  for (int v = 0; v < nviews; v++) {
+      const Mat34 P = d.P(v);
+      const Mat2X corners_pix = Project(P, corners);
+      sfm_data.april_tag_observations.emplace_back(apriltag.id, v, corners_pix);
+  }
+
   const double dResidual_before = RMSE(sfm_data);
 
   // Call the BA interface and let it refine (Structure and Camera parameters [Intrinsics|Motion])

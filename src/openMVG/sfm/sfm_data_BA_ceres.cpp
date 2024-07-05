@@ -628,6 +628,8 @@ bool Bundle_Adjustment_Ceres::Adjust
         << " #poses: " << sfm_data.poses.size() << "\n"
         << " #intrinsics: " << sfm_data.intrinsics.size() << "\n"
         << " #tracks: " << sfm_data.structure.size() << "\n"
+        << " #apriltags: " << sfm_data.april_tags.size() << "\n"
+        << " #tag-observations: " << sfm_data.april_tag_observations.size() << "\n"
         << " #residuals: " << summary.num_residuals << "\n"
         << " Initial RMSE: " << std::sqrt( summary.initial_cost / summary.num_residuals) << "\n"
         << " Final RMSE: " << std::sqrt( summary.final_cost / summary.num_residuals) << "\n"
@@ -690,7 +692,7 @@ bool Bundle_Adjustment_Ceres::Adjust
       // Update the pose
       Pose3 & pose = april_tag_it.second.pose;
       pose.rotation() = R_refined;
-      pose.translation() = t_refined;
+      pose.center() = -R_refined.transpose() * t_refined;
     }
 
     // Structure is already updated directly if needed (no data wrapping)

@@ -39,7 +39,7 @@ struct AprilTag
   AprilTag(geometry::Pose3 pose_, double size_, IndexT id_)
     : pose(pose_), size(size_), id(id_) {}
 
-  Eigen::Matrix<double, 3, 4> corners_world() {
+  Eigen::Matrix<double, 3, 4> corners_world() const {
     const auto corners = corners_local<double>(size);
     return pose(corners);
   }
@@ -51,7 +51,7 @@ struct AprilTag
     // Corners, top-left going clockwise
     corners << -hs, hs, hs, -hs,
                hs, hs, -hs, -hs,
-               0, 0, 0, 0;
+               T(0), T(0), T(0), T(0);
     return corners;
   }
 
