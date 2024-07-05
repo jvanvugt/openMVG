@@ -154,7 +154,39 @@ struct AprilTagObservationCostFunction
   static ceres::CostFunction* Create(const Eigen::Matrix<double, 2, 4>& corner_pix, double tag_size, double weight)
   {
     return new ceres::AutoDiffCostFunction<AprilTagObservationCostFunction, 8, 6, 6, 6>(
-      new AprilTagObservationCostFunction(corner_pix,tag_size, weight));
+      new AprilTagObservationCostFunction(corner_pix, tag_size, weight));
+  }
+};
+
+struct AprilTagDistanceCostFunction
+{
+  double distance;
+  double weight;
+
+  AprilTagDistanceCostFunction(double distance_, double weight_)
+    : distance(distance_), weight(weight_)
+  {
+  }
+
+  template <typename T> bool
+  operator()
+  (
+    const T* const tag1_pose,
+    const T* const tag2_pose,
+    T* out_residual
+  ) const
+  {
+    using Vec3T = Eigen::Matrix<T,3,1>;
+    Eigen::Map<const Vec3T> tag1_t(&tag1_pose[3]);
+    Eigen::Map<const Vec3T> tag2_t(&tag2_pose[3]);
+    *out_residual = (tag1_t - tag2_t).norm();
+    return true;
+  }
+
+  static ceres::CostFunction* Create(double distance, double weight)
+  {
+    return new ceres::AutoDiffCostFunction<AprilTagDistanceCostFunction, 1, 6, 6>(
+      new AprilTagDistanceCostFunction(distance, weight));
   }
 };
 
@@ -560,6 +592,16 @@ bool Bundle_Adjustment_Ceres::Adjust
                              &map_intrinsics.at(view->id_intrinsic)[0],
                              &map_poses.at(view->id_pose)[0],
                              &map_april_tag_poses.at(tag.id)[0]);
+  }
+
+  for (const auto& at_dist : sfm_data.april_tag_distances)
+  {
+    ceres::CostFunction* cost_function = AprilTagDistanceCostFunction::Create(at_dist.distance, at_dist.weight);
+
+    problem.AddResidualBlock(cost_function,
+                             nullptr,
+                             &map_april_tag_poses.at(at_dist.tag1_id)[0],
+                             &map_april_tag_poses.at(at_dist.tag2_id)[0]);
   }
 
   // Add Pose prior constraints if any

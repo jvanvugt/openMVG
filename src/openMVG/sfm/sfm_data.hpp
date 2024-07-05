@@ -73,9 +73,10 @@ struct AprilTagDistance
   IndexT tag1_id;
   IndexT tag2_id;
   double distance;
+  double weight;
 
-  AprilTagDistance(IndexT tag1_id_, IndexT tag2_id_, double distance_)
-    : tag1_id(tag1_id_), tag2_id(tag2_id_), distance(distance_) {}
+  AprilTagDistance(IndexT tag1_id_, IndexT tag2_id_, double distance_, double weight_ = 1.0)
+    : tag1_id(tag1_id_), tag2_id(tag2_id_), distance(distance_), weight(weight_) {}
 };
 
 /// Generic SfM data container
