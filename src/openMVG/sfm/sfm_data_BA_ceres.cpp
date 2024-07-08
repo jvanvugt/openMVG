@@ -179,7 +179,7 @@ struct AprilTagDistanceCostFunction
     using Vec3T = Eigen::Matrix<T,3,1>;
     Eigen::Map<const Vec3T> tag1_t(&tag1_pose[3]);
     Eigen::Map<const Vec3T> tag2_t(&tag2_pose[3]);
-    *out_residual = (tag1_t - tag2_t).norm();
+    *out_residual = (T(distance) - (tag1_t - tag2_t).norm()) * T(weight);
     return true;
   }
 
