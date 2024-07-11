@@ -63,9 +63,10 @@ struct AprilTagObservation
   IndexT tag_id;
   IndexT view_id;
   Eigen::Matrix<double, 2, 4> corners;
+  double weight;
 
-  AprilTagObservation(IndexT tag_id_, IndexT view_id_, Eigen::Matrix<double, 2, 4> corners_)
-    : tag_id(tag_id_), view_id(view_id_), corners(corners_) {}
+  AprilTagObservation(IndexT tag_id_, IndexT view_id_, Eigen::Matrix<double, 2, 4> corners_, double weight_)
+    : tag_id(tag_id_), view_id(view_id_), corners(corners_), weight(weight_) {}
 };
 
 struct AprilTagDistance

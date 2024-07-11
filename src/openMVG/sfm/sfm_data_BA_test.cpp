@@ -120,7 +120,7 @@ TEST(BUNDLE_ADJUSTMENT, EffectiveMinimization_Pinhole_Radial_K3) {
   for (int v = 0; v < nviews; v++) {
       const Mat34 P = d.P(v);
       const Mat2X corners_pix = Project(P, corners);
-      sfm_data.april_tag_observations.emplace_back(apriltag.id, v, corners_pix);
+      sfm_data.april_tag_observations.emplace_back(apriltag.id, v, corners_pix, 1.0);
   }
 
   const double dResidual_before = RMSE(sfm_data);

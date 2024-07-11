@@ -148,6 +148,9 @@ struct AprilTagObservationCostFunction
       ResidualErrorFunctor_Pinhole_Intrinsic_Radial_K3 reprojection_residual(corner_pix.col(i).data());
       success = reprojection_residual(cam_intrinsics, cam_extrinsics, corner_world.data(), out_residual + 2 * i) && success;
     }
+    for (int i = 0; i < 8; i++) {
+      out_residual[i] *= T(weight);
+    }
     return success;
   }
 
@@ -585,7 +588,7 @@ bool Bundle_Adjustment_Ceres::Adjust
     const auto& view = sfm_data.views.at(at_obs.view_id);
     const auto& obs = at_obs.corners;
 
-    ceres::CostFunction* cost_function = AprilTagObservationCostFunction::Create(obs, tag.size, 1.0);
+    ceres::CostFunction* cost_function = AprilTagObservationCostFunction::Create(obs, tag.size, at_obs.weight);
 
     problem.AddResidualBlock(cost_function,
                              nullptr,
